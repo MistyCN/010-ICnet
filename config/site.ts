@@ -32,8 +32,8 @@ export interface SiteConfig {
 export const siteConfig: SiteConfig = {
   siteName: "InfCraft Web",
   serverName: "InfCraft / 无限大陆",
-  serverIp: process.env.NEXT_PUBLIC_SERVER_IP || "s10-2.yxsjmc.cn",
-  serverPort: parseInt(process.env.NEXT_PUBLIC_SERVER_PORT || "20065", 10),
+  serverIp: process.env.NEXT_PUBLIC_SERVER_IP || "infcraft.mistycn.com",
+  serverPort: parseInt(process.env.NEXT_PUBLIC_SERVER_PORT || "25565", 10),
   get serverAddress() {
     const ip = this.serverIp;
     const port = this.serverPort;
