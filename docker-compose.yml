@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: infcraft-web:latest
+    container_name: infcraft-web-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SERVER_IP=s10-2.yxsjmc.cn
+      - NEXT_PUBLIC_SERVER_PORT=20065
+      - MC_SERVER_HOST=s10-2.yxsjmc.cn
+      - MC_SERVER_PORT=20065
+      - MC_STATUS_TIMEOUT_MS=3000
+      - MC_STATUS_CACHE_TTL_SECONDS=30
