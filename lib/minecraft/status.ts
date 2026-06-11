@@ -10,7 +10,7 @@ interface CacheEntry {
 // 模块级服务端内存缓存
 let cachedStatus: CacheEntry | null = null;
 
-export async function getServerStatus(): Promise<ServerStatusResponse> {
+export async function getServerStatus(forceRefresh = false): Promise<ServerStatusResponse> {
   // 1. 读取并解析环境变量
   const host =
     process.env.MC_SERVER_HOST ||
@@ -37,6 +37,7 @@ export async function getServerStatus(): Promise<ServerStatusResponse> {
 
   // 2. 检查缓存是否命中
   if (
+    !forceRefresh &&
     cachedStatus &&
     cachedStatus.response.host === host &&
     cachedStatus.response.port === port

@@ -11,11 +11,12 @@ export default function ServerStatusCard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchStatus = async (isSilent = false) => {
+  const fetchStatus = async (isSilent = false, forceRefresh = false) => {
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
     try {
-      const res = await fetch("/api/server-status", { cache: "no-store" });
+      const url = forceRefresh ? "/api/server-status?force=true" : "/api/server-status";
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("API error");
       const data: ServerStatusResponse = await res.json();
       setStatus(data);
@@ -71,9 +72,9 @@ export default function ServerStatusCard() {
           </span>
         </div>
         <button
-          onClick={() => fetchStatus(false)}
+          onClick={() => fetchStatus(false, true)}
           className="p-1 text-text-light hover:text-foreground transition-colors cursor-pointer"
-          disabled={refreshing}
+          disabled={refreshing || loading}
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
         </button>

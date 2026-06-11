@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerStatus } from "@/lib/minecraft/status";
 
 export const runtime = "nodejs";
@@ -10,9 +10,11 @@ const cacheHeaders = {
   "Expires": "0",
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const status = await getServerStatus();
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get("force") === "true";
+    const status = await getServerStatus(force);
     return NextResponse.json(status, {
       headers: cacheHeaders,
     });
