@@ -10,9 +10,11 @@ export default function Hero() {
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.08]">
           {siteConfig.serverName}
         </h1>
-        <p className="text-lg sm:text-xl text-text-muted leading-relaxed font-light max-w-xl">
-          {siteConfig.description}
-        </p>
+        {siteConfig.description && (
+          <p className="text-lg sm:text-xl text-text-muted leading-relaxed font-light max-w-xl">
+            {siteConfig.description}
+          </p>
+        )}
       </div>
 
       {/* 首页服务器 IP 醒目标识卡片 */}

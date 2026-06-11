@@ -40,7 +40,7 @@ export const siteConfig: SiteConfig = {
     return port !== 25565 ? `${ip}:${port}` : ip;
   },
   serverVersionDisplay: "26.1.2", // 服务器支持的版本
-  description: "InfCraft / 无限大陆 官网第一版。服务器信息、加入方式与公告将在这里维护。",
+  description: "",
   
   navLinks: [
     { label: "首页", href: "/" },
