@@ -1,3 +1,193 @@
+# 低性能 VPS 部署：本地构建镜像后上传
+
+如果 VPS 性能较弱，不建议在服务器上执行 `npm ci`、`next build` 或编译 `better-sqlite3`。推荐在本地性能较好的机器上完成 Docker 镜像构建，再把镜像包上传到 VPS。这样服务器只负责加载镜像和运行容器。
+
+## 当前数据策略：不使用挂载卷
+
+当前 `docker-compose.yml` 不再挂载 `/app/data`，SQLite 数据库会写入容器内部的 `/app/data/dev.db`。
+
+这能避开 1Panel/宿主机挂载目录权限导致的 `SQLITE_CANTOPEN` 问题，但有一个明确代价：如果删除容器、重新创建容器或使用新镜像强制替换容器，容器内部数据库会丢失。需要保留数据时，请先备份：
+
+```bash
+docker cp infcraft-web-app:/app/data ./infcraft-data-backup
+```
+
+恢复到新容器：
+
+```bash
+docker cp ./infcraft-data-backup/. infcraft-web-app:/app/data/
+docker restart infcraft-web-app
+```
+
+## Git 上传前的本地构建产物
+
+每次提交并上传 Git 前，先在本地执行：
+
+```powershell
+npm run build
+```
+
+确认预构建产物存在：
+
+```powershell
+Test-Path .\.next\standalone
+Test-Path .\.next\static
+```
+
+两条命令都返回 `True` 后，再提交源码和 `.next` 构建产物：
+
+```powershell
+git add -A
+git commit -m "your commit message"
+git push
+```
+
+当前 Dockerfile 会直接复制 `.next/standalone` 和 `.next/static`，服务器执行 `docker compose up --build` 时不会再运行 `npm ci` 或 `npm run build`。
+
+## 1. 本地构建生产镜像
+
+在项目根目录执行：
+
+```powershell
+docker compose build
+```
+
+确认镜像已经生成：
+
+```powershell
+docker images infcraft-web
+```
+
+## 2. 导出镜像包
+
+```powershell
+docker save infcraft-web:latest -o infcraft-web.tar
+```
+
+`infcraft-web.tar` 是完整 Docker 镜像包，可以直接传到服务器。该文件已被 `.gitignore` 排除，不要提交到 Git 仓库。
+
+## 3. 上传到 VPS
+
+上传镜像包：
+
+```powershell
+scp .\infcraft-web.tar user@your-vps:/tmp/infcraft-web.tar
+```
+
+如果服务器上还没有部署目录，可以创建目录并上传 compose 文件：
+
+```powershell
+ssh user@your-vps "mkdir -p ~/infcraft-web"
+scp .\docker-compose.yml user@your-vps:~/infcraft-web/docker-compose.yml
+```
+
+把 `user@your-vps` 替换成真实 SSH 用户名和服务器地址。
+
+## 4. VPS 加载镜像
+
+登录服务器：
+
+```bash
+ssh user@your-vps
+```
+
+加载镜像：
+
+```bash
+docker load -i /tmp/infcraft-web.tar
+```
+
+确认镜像存在：
+
+```bash
+docker images infcraft-web
+```
+
+## 5. VPS 启动容器
+
+进入部署目录：
+
+```bash
+cd ~/infcraft-web
+```
+
+因为镜像已经在本地构建完成，服务器上不要再次 build：
+
+```bash
+docker compose up -d --no-build
+```
+
+查看状态和日志：
+
+```bash
+docker compose ps
+docker compose logs -f
+```
+
+默认访问地址：
+
+```text
+http://服务器IP:3000
+```
+
+## 6. 后续更新流程
+
+本地每次改完代码后：
+
+```powershell
+docker compose build
+docker save infcraft-web:latest -o infcraft-web.tar
+scp .\infcraft-web.tar user@your-vps:/tmp/infcraft-web.tar
+```
+
+VPS 上执行：
+
+```bash
+docker load -i /tmp/infcraft-web.tar
+cd ~/infcraft-web
+docker compose up -d --no-build --force-recreate
+```
+
+## 7. 可选：服务器使用精简 compose 文件
+
+当前 `docker-compose.yml` 保留了 `build:`，方便本地开发和本地构建。低性能 VPS 上可以使用一个精简版 `docker-compose.prod.yml`，只引用已经加载好的镜像，不包含 `build:`。
+
+示例：
+
+```yaml
+services:
+  web:
+    image: infcraft-web:latest
+    container_name: infcraft-web-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SERVER_IP=infcraft.mistycn.com
+      - NEXT_PUBLIC_SERVER_PORT=25565
+      - MC_SERVER_HOST=s10-2.yxsjmc.cn
+      - MC_SERVER_PORT=20065
+      - MC_STATUS_TIMEOUT_MS=8000
+      - MC_STATUS_CACHE_TTL_SECONDS=30
+      - DATABASE_URL=file:/app/data/dev.db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=replace-with-a-secure-secret-for-production-use
+```
+
+启动精简 compose：
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+生产环境请务必修改：
+
+- `NEXTAUTH_SECRET`：改成强随机字符串。
+- `NEXTAUTH_URL`：改成实际域名，例如 `https://example.com`。
+- `NEXT_PUBLIC_SERVER_IP` / `MC_SERVER_HOST`：按真实 Minecraft 服务器地址调整。
+
+---
 # InfCraft Web - Minecraft 服务器官网
 
 **InfCraft Web** 是专为 Minecraft 游戏服务器「**InfCraft / 无限大陆**」设计的官网第一版项目。
@@ -188,9 +378,9 @@ git commit -m "feat: init InfCraft Web official site first version"
   ```
 
 ### 3. 数据备份与容器持久化
-在 Docker 部署中，数据库文件默认持久化于容器卷 `db-data` 中（挂载在容器的 `/app/data` 目录下）。
+当前 Docker 部署不使用挂载卷，数据库文件保存在容器内部的 `/app/data/dev.db`。
 * **手动备份数据库**：
-  只需要备份宿主机 Docker 卷目录下的 `dev.db` 文件即可，例如：
+  删除或重建容器前，请先从容器内复制数据库文件，例如：
   ```bash
   docker cp infcraft-web-app:/app/data/dev.db ./backup-dev.db
   ```

@@ -1,0 +1,5 @@
+.next/** -text
+*.node binary
+*.so binary
+*.so.* binary
+*.a binary

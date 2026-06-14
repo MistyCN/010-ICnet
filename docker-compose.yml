@@ -9,8 +9,6 @@ services:
     restart: always
     ports:
       - "3000:3000"
-    volumes:
-      - db-data:/app/data
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_SERVER_IP=infcraft.mistycn.com
@@ -22,6 +20,3 @@ services:
       - DATABASE_URL=file:/app/data/dev.db
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=replace-with-a-secure-secret-for-production-use
-
-volumes:
-  db-data:
