@@ -1,15 +1,16 @@
-version: "3.8"
-
 services:
   web:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     image: infcraft-web:latest
     container_name: infcraft-web-app
     restart: always
     ports:
       - "3000:3000"
+    volumes:
+      - db-data:/app/data
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_SERVER_IP=infcraft.mistycn.com
@@ -18,3 +19,9 @@ services:
       - MC_SERVER_PORT=20065
       - MC_STATUS_TIMEOUT_MS=8000
       - MC_STATUS_CACHE_TTL_SECONDS=30
+      - DATABASE_URL=file:/app/data/dev.db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=replace-with-a-secure-secret-for-production-use
+
+volumes:
+  db-data:

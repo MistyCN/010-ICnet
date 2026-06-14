@@ -44,7 +44,7 @@ export const siteConfig: SiteConfig = {
   
   navLinks: [
     { label: "首页", href: "/" },
-    { label: "讨论", href: "/features" },
+    { label: "讨论", href: "/discussions" },
     { label: "公告", href: "/news" },
     { label: "加入", href: "/join" },
     { label: "关于", href: "/about" },

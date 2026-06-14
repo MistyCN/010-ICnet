@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import AuthStatus from "@/components/auth-status";
 
 export default function SiteHeader() {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,6 +64,10 @@ export default function SiteHeader() {
               ))}
             </nav>
 
+            <div className="h-4 w-px bg-border-base" />
+
+            <AuthStatus />
+
             <button
               onClick={toggleTheme}
               className="p-1 rounded-full text-text-muted hover:text-foreground hover:bg-card-hover transition-all cursor-pointer"
@@ -116,6 +121,9 @@ export default function SiteHeader() {
                 {link.label}
               </Link>
             ))}
+          </div>
+          <div className="px-6 py-4 border-t border-border-base">
+            <AuthStatus />
           </div>
         </div>
       )}

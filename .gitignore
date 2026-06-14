@@ -20,6 +20,14 @@
 # production
 /build
 
+# local runtime data
+/data/
+*.db
+*.sqlite
+*.sqlite3
+*.tar
+*.tar.gz
+
 # misc
 .DS_Store
 *.pem

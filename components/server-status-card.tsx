@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ServerStatusResponse } from "@/types/server-status";
-import { Users, Cpu, Clock, RefreshCw, Server, WifiOff } from "lucide-react";
+import { Cpu, Clock, RefreshCw, Server, Sparkles, WifiOff } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import CopyIpButton from "./copy-ip-button";
 
@@ -60,6 +60,7 @@ export default function ServerStatusCard() {
   const latency = status?.latency;
   const motd = status?.motd;
   const playerPercent = maxPlayers > 0 ? Math.min((onlinePlayers / maxPlayers) * 100, 100) : 0;
+  const isTimeTravellerOnline = status?.players.sample.some((name) => name === "Time_Traveller") ?? false;
 
   return (
     <div className="w-full max-w-md bg-card-bg border border-border-base rounded-2xl p-6 transition-all duration-200 animate-fade-in">
@@ -91,6 +92,15 @@ export default function ServerStatusCard() {
 
       {isOnline ? (
         <div className="space-y-5">
+          {isTimeTravellerOnline && (
+            <div className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-amber-700 dark:text-amber-300">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <p className="text-xs font-semibold">Time 正在游玩 IC</p>
+              </div>
+            </div>
+          )}
+
           {/* MOTD */}
           <div className="space-y-1.5">
             <span className="text-[10px] text-text-muted uppercase tracking-widest font-medium">MOTD</span>

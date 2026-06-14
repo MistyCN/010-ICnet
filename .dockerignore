@@ -10,3 +10,9 @@ docker-compose.yml
 .env
 npm-debug.log*
 README.md
+*.db
+*.sqlite
+*.sqlite3
+*.tar
+*.tar.gz
+data

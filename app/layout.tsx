@@ -5,6 +5,8 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { siteConfig } from "@/config/site";
 
+import { Providers } from "@/components/providers";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -51,9 +53,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200 selection:bg-success-bg selection:text-success-text">
-        <SiteHeader />
-        <main className="flex-grow flex flex-col">{children}</main>
-        <SiteFooter />
+        <Providers>
+          <SiteHeader />
+          <main className="flex-grow flex flex-col">{children}</main>
+          <SiteFooter />
+        </Providers>
       </body>
     </html>
   );
