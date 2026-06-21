@@ -188,13 +188,13 @@ export default function ProfilePage({
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{profile.minecraftId}</h1>
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-semibold
-                  ${profile.role === "ADMIN" 
+                  ${profile.role === "OP"
                     ? "bg-danger-bg/40 border-danger-border/40 text-danger" 
                     : "bg-success-bg/40 border-success-border/40 text-success-text"
                   }`}
                 >
                   <Shield className="h-3 w-3" />
-                  {profile.role === "ADMIN" ? "管理员" : "冒险家"}
+                  {profile.role === "OP" ? "OP" : "冒险家"}
                 </span>
                 
                 <div className="flex items-center gap-1 text-text-muted">

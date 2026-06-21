@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { and, asc, count, desc, eq, like, sql } from "drizzle-orm";
-import { db, discussions, pollOptions, polls, pollVotes, replies, sqlite, users } from "./db";
+import { db, discussions, facilities, pollOptions, polls, pollVotes, replies, sqlite, users } from "./db";
 
 function now() {
   return new Date().toISOString();
@@ -19,6 +19,11 @@ export async function findUserByMinecraftIdCaseInsensitive(minecraftId: string) 
   return candidates.find((user) => user.minecraftId.toLowerCase() === minecraftId.toLowerCase()) ?? null;
 }
 
+export async function findUserById(userId: string) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  return user ?? null;
+}
+
 export async function createUser(input: { minecraftId: string; passwordHash: string; role?: string }) {
   const [user] = await db
     .insert(users)
@@ -33,6 +38,55 @@ export async function createUser(input: { minecraftId: string; passwordHash: str
     .returning();
 
   return user;
+}
+
+export async function listUsersForAdmin() {
+  const rows = await db
+    .select({
+      id: users.id,
+      minecraftId: users.minecraftId,
+      role: users.role,
+      createdAt: users.createdAt,
+      discussions: sql<number>`(select count(*) from "Discussion" where "authorId" = ${users.id})`,
+      replies: sql<number>`(select count(*) from "Reply" where "authorId" = ${users.id})`,
+    })
+    .from(users)
+    .orderBy(asc(users.minecraftId));
+
+  return rows.map((user) => ({
+    id: user.id,
+    minecraftId: user.minecraftId,
+    role: user.role,
+    createdAt: user.createdAt,
+    _count: {
+      discussions: user.discussions,
+      replies: user.replies,
+    },
+  }));
+}
+
+export async function setUserRole(input: { minecraftId: string; role: "USER" | "OP" }) {
+  const user = await findUserByMinecraftIdCaseInsensitive(input.minecraftId);
+
+  if (!user) {
+    return null;
+  }
+
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      role: input.role,
+      updatedAt: now(),
+    })
+    .where(eq(users.id, user.id))
+    .returning({
+      id: users.id,
+      minecraftId: users.minecraftId,
+      role: users.role,
+      createdAt: users.createdAt,
+    });
+
+  return updatedUser ?? null;
 }
 
 export async function listDiscussions() {
@@ -195,6 +249,15 @@ export async function discussionExists(discussionId: string) {
   return Boolean(discussion);
 }
 
+export async function deleteDiscussion(discussionId: string) {
+  const result = await db
+    .delete(discussions)
+    .where(eq(discussions.id, discussionId))
+    .returning({ id: discussions.id });
+
+  return result.length > 0;
+}
+
 export async function createReply(input: { content: string; discussionId: string; authorId: string }) {
   const replyId = id();
   const createdAt = now();
@@ -226,6 +289,15 @@ export async function createReply(input: { content: string; discussionId: string
     createdAt: reply.createdAt,
     author: { minecraftId: reply.authorMinecraftId },
   };
+}
+
+export async function deleteReply(replyId: string) {
+  const result = await db
+    .delete(replies)
+    .where(eq(replies.id, replyId))
+    .returning({ id: replies.id });
+
+  return result.length > 0;
 }
 
 export async function getPollForDiscussion(discussionId: string) {
@@ -303,4 +375,114 @@ export async function getUserProfile(minecraftId: string) {
     })),
     _count: counts,
   };
+}
+
+// ===== 公共设施清单 =====
+
+export async function listFacilities() {
+  const rows = await db
+    .select({
+      id: facilities.id,
+      landName: facilities.landName,
+      facilityName: facilities.facilityName,
+      builder: facilities.builder,
+      authorId: facilities.authorId,
+      createdAt: facilities.createdAt,
+    })
+    .from(facilities)
+    .orderBy(desc(facilities.createdAt));
+
+  return rows.map((row) => ({
+    id: row.id,
+    landName: row.landName,
+    facilityName: row.facilityName,
+    builder: row.builder,
+    authorId: row.authorId,
+    createdAt: row.createdAt,
+    teleportCommand: `/res tp ${row.landName}`,
+  }));
+}
+
+export async function createFacility(input: {
+  landName: string;
+  facilityName: string;
+  builder: string;
+  authorId: string;
+}) {
+  const [facility] = await db
+    .insert(facilities)
+    .values({
+      id: id(),
+      landName: input.landName,
+      facilityName: input.facilityName,
+      builder: input.builder,
+      authorId: input.authorId,
+      createdAt: now(),
+      updatedAt: now(),
+    })
+    .returning();
+
+  return facility;
+}
+
+// 仅返回属于该 authorId 的设施，用于编辑页鉴权与预填
+export async function getFacilityForOwner(facilityId: string, authorId: string) {
+  const [facility] = await db
+    .select({
+      id: facilities.id,
+      landName: facilities.landName,
+      facilityName: facilities.facilityName,
+      builder: facilities.builder,
+      authorId: facilities.authorId,
+    })
+    .from(facilities)
+    .where(and(eq(facilities.id, facilityId), eq(facilities.authorId, authorId)));
+
+  return facility ?? null;
+}
+
+export async function getFacilityForManager(facilityId: string, userId: string, canManageAll: boolean) {
+  const [facility] = await db
+    .select({
+      id: facilities.id,
+      landName: facilities.landName,
+      facilityName: facilities.facilityName,
+      builder: facilities.builder,
+      authorId: facilities.authorId,
+    })
+    .from(facilities)
+    .where(canManageAll ? eq(facilities.id, facilityId) : and(eq(facilities.id, facilityId), eq(facilities.authorId, userId)));
+
+  return facility ?? null;
+}
+
+export async function updateFacility(input: {
+  id: string;
+  authorId: string;
+  canManageAll?: boolean;
+  landName: string;
+  facilityName: string;
+  builder: string;
+}) {
+  const result = await db
+    .update(facilities)
+    .set({
+      landName: input.landName,
+      facilityName: input.facilityName,
+      builder: input.builder,
+      updatedAt: now(),
+    })
+    .where(input.canManageAll ? eq(facilities.id, input.id) : and(eq(facilities.id, input.id), eq(facilities.authorId, input.authorId)))
+    .returning();
+
+  return result.length > 0;
+}
+
+export async function deleteFacility(input: { id: string; authorId: string; canManageAll?: boolean }) {
+  const result = await db
+    .delete(facilities)
+    .where(input.canManageAll ? eq(facilities.id, input.id) : and(eq(facilities.id, input.id), eq(facilities.authorId, input.authorId)))
+    .returning();
+
+  return result.length > 0;
 }

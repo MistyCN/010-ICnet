@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         online: false,
-        host: process.env.MC_SERVER_HOST || process.env.NEXT_PUBLIC_SERVER_IP || "your-server.example.com",
-        port: parseInt(process.env.MC_SERVER_PORT || process.env.NEXT_PUBLIC_SERVER_PORT || "25565", 10),
+        host: process.env.NEXT_PUBLIC_SERVER_IP || "your-server.example.com",
+        port: parseInt(process.env.NEXT_PUBLIC_SERVER_PORT || "25565", 10),
         motd: null,
         version: null,
         protocol: null,

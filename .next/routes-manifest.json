@@ -55,6 +55,14 @@
       "namedRegex": "^/api/discussions/(?<nxtPid>[^/]+?)/replies(?:/)?$"
     },
     {
+      "page": "/api/facilities/[id]",
+      "regex": "^/api/facilities/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/facilities/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
       "page": "/api/uploads/[filename]",
       "regex": "^/api/uploads/([^/]+?)(?:/)?$",
       "routeKeys": {
@@ -77,6 +85,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/discussions/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/facilities/[id]/edit",
+      "regex": "^/facilities/([^/]+?)/edit(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/facilities/(?<nxtPid>[^/]+?)/edit(?:/)?$"
     },
     {
       "page": "/profile/[username]",
@@ -113,6 +129,18 @@
       "namedRegex": "^/about(?:/)?$"
     },
     {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/api/admin/users",
+      "regex": "^/api/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/users(?:/)?$"
+    },
+    {
       "page": "/api/auth/register",
       "regex": "^/api/auth/register(?:/)?$",
       "routeKeys": {},
@@ -123,6 +151,12 @@
       "regex": "^/api/discussions(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/discussions(?:/)?$"
+    },
+    {
+      "page": "/api/facilities",
+      "regex": "^/api/facilities(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/facilities(?:/)?$"
     },
     {
       "page": "/api/server-status",
@@ -147,6 +181,18 @@
       "regex": "^/discussions/new(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/discussions/new(?:/)?$"
+    },
+    {
+      "page": "/facilities",
+      "regex": "^/facilities(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/facilities(?:/)?$"
+    },
+    {
+      "page": "/facilities/new",
+      "regex": "^/facilities/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/facilities/new(?:/)?$"
     },
     {
       "page": "/favicon.ico",

@@ -1,5 +1,12 @@
+import { execFile } from "child_process";
+import { Resolver } from "dns/promises";
+import { promisify } from "util";
 import { status } from "minecraft-server-util";
 import { ServerStatusResponse } from "@/types/server-status";
+
+const execFileAsync = promisify(execFile);
+const srvResolver = new Resolver();
+srvResolver.setServers(["1.1.1.1", "8.8.8.8"]);
 
 interface CacheEntry {
   response: ServerStatusResponse;
@@ -7,101 +14,165 @@ interface CacheEntry {
   isError: boolean;
 }
 
-// 模块级服务端内存缓存
+interface PingResult {
+  motd?: string | { clean?: string; raw?: string };
+  version?: { name?: string; protocol?: number };
+  players?: {
+    online?: number;
+    max?: number;
+    sample?: { name?: string }[] | null;
+  };
+  roundTripLatency?: number;
+}
+
+interface PingTarget {
+  host: string;
+  port: number;
+}
+
 let cachedStatus: CacheEntry | null = null;
 
+function getStatusConfig() {
+  const host = process.env.NEXT_PUBLIC_SERVER_IP || "infcraft.mistycn.com";
+  const port = parseInt(process.env.NEXT_PUBLIC_SERVER_PORT || "25565", 10) || 25565;
+  const timeout = parseInt(process.env.MC_STATUS_TIMEOUT_MS || "8000", 10) || 8000;
+  const cacheTTL = parseInt(process.env.MC_STATUS_CACHE_TTL_SECONDS || "30", 10) || 30;
+
+  return { host, port, timeout, cacheTTL };
+}
+
+function toResponse(input: {
+  result: PingResult;
+  host: string;
+  port: number;
+  checkedAt: string;
+  fallbackLatency: number;
+}): ServerStatusResponse {
+  const { result, host, port, checkedAt, fallbackLatency } = input;
+
+  let motd: string | null = null;
+  if (typeof result.motd === "string") {
+    motd = result.motd;
+  } else if (result.motd?.clean) {
+    motd = result.motd.clean;
+  } else if (result.motd?.raw) {
+    motd = result.motd.raw;
+  }
+
+  return {
+    online: true,
+    host,
+    port,
+    motd,
+    version: result.version?.name || "未知版本",
+    protocol: result.version?.protocol || null,
+    players: {
+      online: result.players?.online || 0,
+      max: result.players?.max || 0,
+      sample: result.players?.sample?.map((player) => player.name).filter((name): name is string => Boolean(name)) || [],
+    },
+    latency: typeof result.roundTripLatency === "number" ? result.roundTripLatency : fallbackLatency,
+    checkedAt,
+  };
+}
+
+async function resolvePingTarget(host: string, port: number): Promise<PingTarget> {
+  if (port !== 25565) {
+    return { host, port };
+  }
+
+  try {
+    const records = await srvResolver.resolveSrv(`_minecraft._tcp.${host}`);
+    const [record] = records.sort((a, b) => a.priority - b.priority || b.weight - a.weight);
+
+    if (record) {
+      return { host: record.name, port: record.port };
+    }
+  } catch {
+    // No SRV record: ping the displayed default address directly.
+  }
+
+  return { host, port };
+}
+
+async function queryInProcess(target: PingTarget, timeout: number) {
+  return await status(target.host, target.port, {
+    timeout,
+    enableSRV: false,
+  });
+}
+
+async function queryInSubprocess(target: PingTarget, timeout: number) {
+  const script = `
+    const { status } = require("minecraft-server-util");
+    const [host, port, timeout] = process.argv.slice(1);
+    status(host, Number(port), { timeout: Number(timeout), enableSRV: false })
+      .then((result) => {
+        console.log(JSON.stringify({
+          motd: result.motd,
+          version: result.version,
+          players: result.players,
+          roundTripLatency: result.roundTripLatency
+        }));
+      })
+      .catch((error) => {
+        console.error(error && (error.stack || error.message) || error);
+        process.exit(1);
+      });
+  `;
+
+  const { stdout } = await execFileAsync(process.execPath, ["-e", script, target.host, String(target.port), String(timeout)], {
+    cwd: process.cwd(),
+    timeout: timeout + 3000,
+    windowsHide: true,
+  });
+
+  return JSON.parse(stdout) as PingResult;
+}
+
+function isSocketAccessError(error: unknown) {
+  return error instanceof Error && /EACCES|EPERM/.test(error.message);
+}
+
 export async function getServerStatus(forceRefresh = false): Promise<ServerStatusResponse> {
-  // 1. 读取并解析环境变量
-  const host =
-    process.env.MC_SERVER_HOST ||
-    process.env.NEXT_PUBLIC_SERVER_IP ||
-    "s10-2.yxsjmc.cn";
-  
-  const portStr =
-    process.env.MC_SERVER_PORT ||
-    process.env.NEXT_PUBLIC_SERVER_PORT ||
-    "20065";
-  const port = parseInt(portStr, 10) || 25565;
-
-  // 默认超时从 3000 提升到 8000，给高延迟服务器更多握手时间
-  const timeoutMsStr = process.env.MC_STATUS_TIMEOUT_MS || "8000";
-  const timeout = parseInt(timeoutMsStr, 10) || 8000;
-
-  const cacheTTLStr = process.env.MC_STATUS_CACHE_TTL_SECONDS || "30";
-  const cacheTTL = parseInt(cacheTTLStr, 10) || 30;
-
-  // 失败结果只缓存很短时间(5秒)，避免一次超时导致30秒全部离线
-  const errorCacheTTL = 5;
-
+  const { host, port, timeout, cacheTTL } = getStatusConfig();
+  const errorCacheTTL = 2;
   const checkedAt = new Date().toISOString();
 
-  // 2. 检查缓存是否命中
-  if (
-    !forceRefresh &&
-    cachedStatus &&
-    cachedStatus.response.host === host &&
-    cachedStatus.response.port === port
-  ) {
+  if (!forceRefresh && cachedStatus && cachedStatus.response.host === host && cachedStatus.response.port === port) {
     const age = Date.now() - cachedStatus.timestamp;
     const ttl = cachedStatus.isError ? errorCacheTTL * 1000 : cacheTTL * 1000;
-    
+
     if (age < ttl) {
       return { ...cachedStatus.response };
     }
   }
 
-  // 3. 执行真实查询
-  const startTime = Date.now();
+  const startedAt = Date.now();
+
   try {
-    const result = await status(host, port, {
-      timeout: timeout,
-      enableSRV: true,
-    });
+    let result: PingResult;
+    const target = await resolvePingTarget(host, port);
 
-    const endTime = Date.now();
-    const calculatedLatency = endTime - startTime;
-
-    // 对 MOTD 进行兼容处理
-    let motdString: string | null = null;
-    if (result.motd) {
-      if (typeof result.motd === "string") {
-        motdString = result.motd;
-      } else if (result.motd.clean) {
-        motdString = result.motd.clean;
-      } else if (result.motd.raw) {
-        motdString = result.motd.raw;
+    try {
+      result = await queryInProcess(target, timeout);
+    } catch (error) {
+      if (!isSocketAccessError(error)) {
+        throw error;
       }
+
+      console.warn(`Minecraft ping in Next process hit ${String((error as Error).message)}; retrying in a child process.`);
+      result = await queryInSubprocess(target, timeout);
     }
 
-    // 对 players.sample 进行兼容处理
-    const playerSample: string[] = [];
-    if (result.players && result.players.sample) {
-      result.players.sample.forEach((player) => {
-        if (player && player.name) {
-          playerSample.push(player.name);
-        }
-      });
-    }
-
-    const latency = typeof result.roundTripLatency === "number" ? result.roundTripLatency : calculatedLatency;
-
-    const response: ServerStatusResponse = {
-      online: true,
+    const response = toResponse({
+      result,
       host,
       port,
-      motd: motdString,
-      version: result.version?.name || "未知版本",
-      protocol: result.version?.protocol || null,
-      players: {
-        online: result.players?.online || 0,
-        max: result.players?.max || 0,
-        sample: playerSample,
-      },
-      latency,
       checkedAt,
-    };
+      fallbackLatency: Date.now() - startedAt,
+    });
 
-    // 成功结果缓存 30 秒
     cachedStatus = {
       response,
       timestamp: Date.now(),
@@ -109,10 +180,10 @@ export async function getServerStatus(forceRefresh = false): Promise<ServerStatu
     };
 
     return response;
-  } catch (error: any) {
-    console.error(`Failed to query Minecraft server (${host}:${port}):`, error?.message || error);
+  } catch (error) {
+    console.error(`Failed to query Minecraft server (${host}:${port}):`, error instanceof Error ? error.message : error);
 
-    const errorResponse: ServerStatusResponse = {
+    const response: ServerStatusResponse = {
       online: false,
       host,
       port,
@@ -129,13 +200,12 @@ export async function getServerStatus(forceRefresh = false): Promise<ServerStatu
       error: "Server status unavailable",
     };
 
-    // 失败结果只缓存 5 秒，快速重试
     cachedStatus = {
-      response: errorResponse,
+      response,
       timestamp: Date.now(),
       isError: true,
     };
 
-    return errorResponse;
+    return response;
   }
 }

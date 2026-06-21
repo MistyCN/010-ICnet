@@ -1,6 +1,5 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByMinecraftIdCaseInsensitive } from "./data";
 import { verifyPassword } from "./passwords";
 import { validateMinecraftId, validatePassword } from "./validators";
 
@@ -23,6 +22,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Minecraft ID 或密码错误");
         }
 
+        const { findUserByMinecraftIdCaseInsensitive } = await import("./data");
         const user = await findUserByMinecraftIdCaseInsensitive(credentials.minecraftId);
 
         if (!user) {

@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { LogOut, User, LogIn } from "lucide-react";
+import { LogOut, User, LogIn, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 export default function AuthStatus() {
@@ -19,6 +19,16 @@ export default function AuthStatus() {
     const minecraftId = session.user.minecraftId;
     return (
       <div className="flex items-center gap-3">
+        {session.user.role === "OP" && (
+          <Link
+            href="/admin"
+            className="p-1 rounded-md text-text-muted hover:text-foreground hover:bg-card-hover transition-all cursor-pointer"
+            title="后台管理"
+            aria-label="后台管理"
+          >
+            <ShieldCheck className="h-4 w-4" />
+          </Link>
+        )}
         <Link
           href={`/profile/${minecraftId}`}
           className="flex items-center gap-2 px-2 py-1 rounded-md bg-card border border-border-base hover:bg-card-hover hover:border-border-muted transition-all duration-200 cursor-pointer select-none group"

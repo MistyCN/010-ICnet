@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, MessageSquare, Calendar, User, RefreshCw, AlertCircle, CheckCircle2, BarChart4, Loader2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Calendar, User, RefreshCw, AlertCircle, CheckCircle2, BarChart4, Loader2, Trash2 } from "lucide-react";
 import ReplyForm from "@/components/reply-form";
 import DiscussionList from "@/components/discussion-list";
 
@@ -67,6 +67,8 @@ export default function DiscussionDetailPage({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [voting, setVoting] = useState(false);
   const [voteError, setVoteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null);
 
   const fetchDiscussionDetails = async (isRefresh = false) => {
     if (isRefresh) {
@@ -160,6 +162,62 @@ export default function DiscussionDetailPage({
       setVoteError(err.message || "投票失败，请稍后重试");
     } finally {
       setVoting(false);
+    }
+  };
+
+  const handleDeleteDiscussion = async () => {
+    if (deleting) return;
+    if (!window.confirm("确定删除这篇讨论吗？")) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/discussions/${id}`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        window.alert(data.error || "删除失败");
+        setDeleting(false);
+        return;
+      }
+
+      router.push("/discussions");
+      router.refresh();
+    } catch {
+      window.alert("网络错误，请稍后重试");
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteReply = async (replyId: string) => {
+    if (deletingReplyId) return;
+    if (!window.confirm("确定删除这条回复吗？")) return;
+
+    setDeletingReplyId(replyId);
+    try {
+      const res = await fetch(`/api/discussions/${id}/replies`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replyId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        window.alert(data.error || "删除失败");
+        return;
+      }
+
+      setDiscussion((current) =>
+        current
+          ? {
+              ...current,
+              replies: current.replies.filter((reply) => reply.id !== replyId),
+            }
+          : current,
+      );
+    } catch {
+      window.alert("网络错误，请稍后重试");
+    } finally {
+      setDeletingReplyId(null);
     }
   };
 
@@ -303,14 +361,31 @@ export default function DiscussionDetailPage({
             <span>返回列表</span>
           </button>
 
-          <button
-            onClick={() => fetchDiscussionDetails(true)}
-            disabled={refreshing}
-            className="inline-flex items-center justify-center p-2 rounded-xl border border-border-base bg-card-bg text-text-muted hover:text-foreground hover:bg-card-hover transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50"
-            title="刷新回复"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            {session?.user?.role === "OP" && (
+              <button
+                onClick={handleDeleteDiscussion}
+                disabled={deleting}
+                className="inline-flex items-center justify-center p-2 rounded-xl border border-border-base bg-card-bg text-text-muted hover:text-danger hover:border-danger transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50"
+                title="删除讨论"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={() => fetchDiscussionDetails(true)}
+              disabled={refreshing}
+              className="inline-flex items-center justify-center p-2 rounded-xl border border-border-base bg-card-bg text-text-muted hover:text-foreground hover:bg-card-hover transition-all duration-200 cursor-pointer active:scale-95 disabled:opacity-50"
+              title="刷新回复"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
 
         <article className="p-6 rounded-2xl bg-card-bg border border-border-base shadow-sm">
@@ -510,7 +585,23 @@ export default function DiscussionDetailPage({
                       {reply.author.minecraftId}
                     </span>
                   </Link>
-                  <span>{formatDate(reply.createdAt)}</span>
+                  <div className="flex items-center gap-2">
+                    <span>{formatDate(reply.createdAt)}</span>
+                    {session?.user?.role === "OP" && (
+                      <button
+                        onClick={() => handleDeleteReply(reply.id)}
+                        disabled={Boolean(deletingReplyId)}
+                        className="inline-flex items-center justify-center rounded-md p-1 text-text-muted transition hover:bg-danger-bg hover:text-danger disabled:opacity-50"
+                        title="删除回复"
+                      >
+                        {deletingReplyId === reply.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
                   {renderFormattedContent(reply.content)}

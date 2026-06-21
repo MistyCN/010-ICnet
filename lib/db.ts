@@ -101,4 +101,17 @@ export const pollVotes = sqliteTable(
   (table) => [uniqueIndex("PollVote_userId_pollId_key").on(table.userId, table.pollId)],
 );
 
+// 公共设施清单：玩家登记的公共设施，传送指令由 landName 拼成 `/res tp <landName>`
+export const facilities = sqliteTable("Facility", {
+  id: text("id").primaryKey(),
+  landName: text("landName").notNull(),
+  facilityName: text("facilityName").notNull(),
+  builder: text("builder").notNull(),
+  authorId: text("authorId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  createdAt: text("createdAt").notNull().default("CURRENT_TIMESTAMP"),
+  updatedAt: text("updatedAt").notNull(),
+});
+
 export const db = drizzle(sqlite);

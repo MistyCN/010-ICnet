@@ -20,7 +20,7 @@ export default async function NewDiscussionPage() {
       <div className="max-w-2xl mx-auto px-6">
         <div className="mb-6">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">发布新讨论</h1>
-          <p className="text-xs text-text-muted mt-1 font-normal">发起一个新的话题，与大陆上的其他冒险家共同探讨</p>
+          <p className="text-xs text-text-muted mt-1 font-normal">发起一个新的话题，与服务器上的其他冒险家共同探讨</p>
         </div>
 
         <div className="p-6 rounded-2xl bg-card-bg border border-border-base shadow-sm">

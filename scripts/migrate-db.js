@@ -76,6 +76,17 @@ CREATE TABLE IF NOT EXISTS "PollVote" (
   CONSTRAINT "PollVote_optionId_fkey" FOREIGN KEY ("optionId") REFERENCES "PollOption" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "Facility" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "landName" TEXT NOT NULL,
+  "facilityName" TEXT NOT NULL,
+  "builder" TEXT NOT NULL,
+  "authorId" TEXT NOT NULL,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL,
+  CONSTRAINT "Facility_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS "User_minecraftId_key" ON "User"("minecraftId");
 CREATE UNIQUE INDEX IF NOT EXISTS "Poll_discussionId_key" ON "Poll"("discussionId");
 CREATE UNIQUE INDEX IF NOT EXISTS "PollVote_userId_pollId_key" ON "PollVote"("userId", "pollId");
